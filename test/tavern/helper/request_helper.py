@@ -50,7 +50,7 @@ def request_create_save_activity_data_param(activity_id, data, title_key):
         title = ''
     return {
         'activity_id': activity_id,
-        'shared_user_id': data['shared_user_id'],
+        'shared_user_ids': data['shared_user_ids'],
         'title': title
     }
 
@@ -147,7 +147,7 @@ def request_create_deposits_redirect_param(data, title_key, file_metadata=None):
         '$schema': data['$schema'],
         'lang': 'ja',
         'pubdate': data['pubdate'],
-        'shared_user_id': data['shared_user_id'],
+        'shared_user_ids': data['shared_user_ids'],
         'title': title
     }
 

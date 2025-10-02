@@ -3771,5 +3771,5 @@
         }
     },
     "$schema": "/items/jsonschema/30002",
-    "shared_user_id": -1
+    "shared_user_ids": []
 }

@@ -365,7 +365,7 @@ def response_verify_workflow_records(response, folder_path, activity_id, activit
             'activity_login_user': 'int',
             'activity_update_user': 'int',
             'activity_confirm_term_of_use': 'bool',
-            'shared_user_id': 'int',
+            'shared_user_ids': 'json',
             'extra_info': 'json',
             'action_order': 'int'
         }

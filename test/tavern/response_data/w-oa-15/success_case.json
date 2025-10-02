@@ -51,6 +51,11 @@
             "name": "e-Rad_Researcher",
             "scheme": "e-Rad_Researcher",
             "url": ""
+        },
+        {   
+            "name": "researchmap",
+            "scheme": "researchmap",
+            "url": "https://researchmap.jp/##"
         }
     ],
     "grouplist": {},

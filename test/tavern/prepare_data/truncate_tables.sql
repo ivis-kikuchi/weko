@@ -48,6 +48,8 @@ TRUNCATE TABLE notifications_user_settings;
 
 TRUNCATE TABLE authors;
 
+TRUNCATE TABLE userprofiles_userprofile CASCADE;
+
 -- reset workflow_activity_id_seq
 SELECT setval('workflow_activity_id_seq', 1, false);
 

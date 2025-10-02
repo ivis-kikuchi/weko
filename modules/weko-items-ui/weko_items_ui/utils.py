@@ -4210,7 +4210,7 @@ def check_duplicate(data, is_item=True, exclude_ids=[]):
     result = db.session.execute(query).fetchall()
 
     matched_recids = set()
-    count_titles = Counter(titles)
+    count_titles = Counter(normalized_titles)
     for recid, json_obj in result:
         json_str = json.dumps(json_obj, ensure_ascii=False)
         result_titles = re.findall(r'"subitem_title"\s*:\s*"([^"]+)"', json_str)
