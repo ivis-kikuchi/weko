@@ -791,10 +791,10 @@ const Unread = ({ itemRecid, initialReadSts, type }) => {
         <td style="width: auto; vertical-align: middle;">
           ${document.getElementById('item_text').innerText}
         </td>
-        <td style="text-align: center; vertical-align: middle; width: 60px;">
+        <td style="text-align: center; vertical-align: middle; width: 60px; white-space: nowrap;">
           ${document.getElementById('stats').innerText}
         </td>
-        <td style="text-align: center; vertical-align: middle; width: 30px;">
+        <td style="text-align: center; vertical-align: middle; width: 30px; white-space: nowrap;">
           ${document.getElementById('info_text').innerText}
         </td>
         <td style="text-align: center; vertical-align: middle; white-space: nowrap;">
