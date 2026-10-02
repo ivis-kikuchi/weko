@@ -61,7 +61,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql.expression import cast
 from weko_redis import RedisConnection
 from weko_accounts.api import ShibUser
-from weko_accounts.utils import login_required_customize
+from weko_accounts.utils import login_required_customize, roles_required
+from weko_admin.config import WEKO_ADMIN_PERMISSION_ROLE_REPO, WEKO_ADMIN_PERMISSION_ROLE_SYSTEM, WEKO_ADMIN_PERMISSION_ROLE_COMMUNITY
 from weko_authors.models import Authors
 from weko_deposit.api import WekoDeposit, WekoRecord
 from weko_deposit.links import base_factory
@@ -69,6 +70,7 @@ from weko_deposit.pidstore import get_record_identifier, \
     get_record_without_version
 from weko_deposit.signals import item_created
 from weko_items_ui.api import item_login
+from weko_items_ui.permissions import item_permission
 from weko_records.api import FeedbackMailList, ItemLink
 from weko_records.models import ItemMetadata
 from weko_records.serializers.utils import get_item_type_name
@@ -235,7 +237,7 @@ def index():
     admin_role = WEKO_USERPROFILES_ADMINISTRATOR_ROLE
     has_admin_role = False
     for role in current_user.roles:
-        if role == admin_role:
+        if admin_role in role.name:
             has_admin_role = True
             break
     send_mail = has_admin_role and send_mail
@@ -666,7 +668,7 @@ def display_guest_activity(file_name=""):
     )
 
     form = FlaskForm(request.form)
-    
+
     return render_template(
         'weko_workflow/activity_detail.html',
         form=form,
@@ -986,7 +988,7 @@ def display_activity(activity_id="0"):
     _id = None
     if recid:
         _id = re.sub("\.[0-9]+", "", recid.pid_value)
-    
+
     form = FlaskForm(request.form)
 
     return render_template(
@@ -2390,8 +2392,8 @@ def lock_activity(activity_id="0"):
             if action_handler:
                 return int(current_user.get_id()) == int(action_handler)
         return False
-    
-    
+
+
     #validate_csrf_header(request)
 
     check_flg = type_null_check(activity_id, str)
@@ -2573,6 +2575,9 @@ def check_approval(activity_id='0'):
 @workflow_blueprint.route('/send_mail/<string:activity_id>/<string:mail_template>',
                  methods=['POST'])
 @login_required
+@roles_required([WEKO_ADMIN_PERMISSION_ROLE_SYSTEM,
+                 WEKO_ADMIN_PERMISSION_ROLE_REPO,
+                 WEKO_ADMIN_PERMISSION_ROLE_COMMUNITY])
 def send_mail(activity_id='0', mail_template=''):
     """Send mail.
 
@@ -2691,6 +2696,8 @@ def get_data_init():
 
 
 @workflow_blueprint.route('/roles', methods=['GET'])
+@login_required
+@item_permission.require(http_exception=403)
 def get_roles():
     """Get roles."""
     from weko_records_ui.utils import get_roles
@@ -2717,12 +2724,12 @@ def download_activitylog():
                 content:
                     test/tsv:
 
-            400: 
+            400:
                 description: "no activity error"
 
             403:
                 description: "permittion error"
-    
+
     """
     if not current_app.config.get("DELETE_ACTIVITY_LOG_ENABLE"):
         abort(403)
@@ -2775,12 +2782,12 @@ def clear_activitylog():
                 description: "success"
                 content:
                     test/tsv:
-            400: 
+            400:
                 description: "no activity error"  or "delete failed error"
 
             403:
                 description: "permittion error"
-    
+
     """
     def _quit_activity(del_activity):
         """ quit activity"""
@@ -2800,7 +2807,7 @@ def clear_activitylog():
                 activity_id=del_activity.activity_id,
                 action_id=del_activity.action_id,
                 action_status=ActionStatusPolicy.ACTION_CANCELED,
-                action_order=del_activity.action_order)    
+                action_order=del_activity.action_order)
             return True
 
     if not current_app.config.get("DELETE_ACTIVITY_LOG_ENABLE"):
@@ -2827,10 +2834,10 @@ def clear_activitylog():
         if del_activity.activity_status in [ActivityStatusPolicy.ACTIVITY_MAKING, ActivityStatusPolicy.ACTIVITY_BEGIN]:
             result = _quit_activity(del_activity)
             if not result:
-                return jsonify(code=-1, msg=str(DeleteActivityFailedRESTError())) ,400         
+                return jsonify(code=-1, msg=str(DeleteActivityFailedRESTError())) ,400
         try:
             with db.session.begin_nested():
-                workflow_activity_action.query.filter_by(activity_id=del_activity.activity_id).delete()                
+                workflow_activity_action.query.filter_by(activity_id=del_activity.activity_id).delete()
                 db.session.delete(del_activity)
             db.session.commit()
         except Exception as ex:
@@ -2839,7 +2846,7 @@ def clear_activitylog():
             return jsonify(code=-1, msg='delete failed error') ,400
     # delete all filitering activity
     else:
-    
+
         conditions = filter_all_condition(request.args)
         activities, maxpage, size, pages, name_param = activity.get_activity_list(conditions=conditions, activitylog=True)
 
@@ -2850,12 +2857,12 @@ def clear_activitylog():
             if del_activity.activity_status in [ActivityStatusPolicy.ACTIVITY_MAKING, ActivityStatusPolicy.ACTIVITY_BEGIN]:
                 result = _quit_activity(del_activity)
                 if not result:
-                   return jsonify(code=-1, msg=str(DeleteActivityFailedRESTError())) ,400 
+                   return jsonify(code=-1, msg=str(DeleteActivityFailedRESTError())) ,400
 
-        try:   
+        try:
             with db.session.begin_nested():
                 for activty in activities:
-                    workflow_activity_action.query.filter_by(activity_id=activty.activity_id).delete()                
+                    workflow_activity_action.query.filter_by(activity_id=activty.activity_id).delete()
                     db.session.delete(activty)
             db.session.commit()
         except Exception as ex:
