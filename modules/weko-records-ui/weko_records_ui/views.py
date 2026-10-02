@@ -1054,8 +1054,6 @@ def charge():
         redirect:
             カード会社の3DS2.0画面へのリダイレクトURL
     '''
-    # Get session_id
-    session_id = request.cookies.get('session')
 
     item_id = request.values.get('item_id')
     file_name = request.values.get('file_name')
@@ -1064,7 +1062,7 @@ def charge():
     file_url = current_app.config['THEME_SITEURL'] + f'/record/{item_id}/files/{file_name}'
     ret_url = urljoin(
         current_app.config['THEME_SITEURL'],
-        url_for('weko_records_ui.charge_secure', session_id=session_id.split('.')[0]),
+        url_for('weko_records_ui.charge_3ds_callback',user_id=current_user.id, item_id=item_id),
     )
 
     # 課金中のアイテムIDをキャッシュから取得
@@ -1107,18 +1105,56 @@ def charge():
         # 課金失敗
         return jsonify({'status': 'error'})
 
-    # 課金中のアイテムIDをキャッシュに保存
-    datastore.put(cache_key, str(item_id).encode('utf-8'), ttl_secs=300)
-
     return jsonify({'redirect_url': redirect_url})
 
-@blueprint.route('/charge/secure/<string:session_id>', methods=['POST'])
-def charge_secure(session_id):
-    """3DS2.0認証後の課金処理を行う。
+@blueprint.route(
+    "/charge/3ds-callback/<string:user_id>/<string:item_id>",
+    methods=["POST"]
+)
+def charge_3ds_callback(user_id, item_id):
+    """3Dセキュア認証後の決済コールバックを処理する。
 
+    決済システムから受け取ったAccessIDをRedisに短時間だけ保存し、
+    AccessIDを直接公開せず、ワンタイムトークンによって
+    /charge/secureへリダイレクトする。
+
+    callbackでは、nginx側でCookieをアプリケーションへ転送せず、
+    Set-Cookieもブラウザへ返さないことで、匿名セッションCookieで
+    利用者のログインCookieが上書きされることを防ぐ。
     Request parameter:
-        session_id : セッションID(URLパラメータ)
-        AccessID : 課金予約時に取得したaccess_id(POSTパラメータ)
+        AccessID : 課金予約時に取得したaccess_id
+        user_id : 利用者ID
+        item_id : 課金対象のアイテムID
+
+    """
+    access_id = request.form.get("AccessID")
+    if not access_id or not user_id or not item_id:
+        abort(400)
+
+    redis_connection = RedisConnection()
+    datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv=True)
+    data = orjson.dumps({
+        'access_id': access_id,
+        'item_id': item_id,
+    })
+    cache_key = f"charge_{user_id}"
+    datastore.put(
+        cache_key,
+        data,
+        ttl_secs=30
+    )
+
+    return redirect(
+        url_for(
+            "weko_records_ui.charge_secure",
+        ),
+        code=303,
+    )
+
+@blueprint.route('/charge/secure', methods=["GET"])
+@login_required
+def charge_secure():
+    """3DS2.0認証後の課金処理を行う。
 
     Response parameter
         json:
@@ -1126,21 +1162,22 @@ def charge_secure(session_id):
                 success : 課金成功
                 error   : 課金失敗
     """
-    access_id = request.values.get('AccessID')
+
     redis_connection = RedisConnection()
-
-    if not current_user.is_authenticated:
-        restore_session_info(session_id, redis_connection)
-
-    # 課金中のアイテムIDをキャッシュから取得
     datastore = redis_connection.connection(db=current_app.config['CACHE_REDIS_DB'], kv=True)
-    cache_key = f'charge_{current_user.id}'
-    if not datastore.redis.exists(cache_key):
-        return redirect('/')
 
-    item_id = datastore.redis.get(cache_key).decode('utf-8')
-    redirect_url = '/records/{}'.format(item_id)
+    # キャッシュからAccessID・課金中のアイテムIDを取得
+    cache_key = f"charge_{current_user.id}"
+    data = datastore.redis.get(cache_key)
+    if data:
+        data = orjson.loads(data)
+        access_id = data.get('access_id')
+        item_id = data.get('item_id')
+    if not data or access_id is None or item_id is None:
+        abort(400)
     datastore.delete(cache_key)
+
+    redirect_url = '/records/{}'.format(item_id)
 
     # 3DS2.0認証後決済
     try:
