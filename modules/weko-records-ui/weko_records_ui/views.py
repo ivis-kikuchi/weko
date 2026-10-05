@@ -75,7 +75,7 @@ from .permissions import check_content_clickable, check_created_id, \
 from .utils import get_billing_file_download_permission, \
     get_google_detaset_meta, get_google_scholar_meta, get_groups_price, \
     get_min_price_billing_file_download, get_record_permalink, hide_by_email, \
-    hide_by_itemtype, restore_session_info
+    hide_by_itemtype, restore_session_info, get_file_price
 from .utils import restore as restore_imp
 from .utils import soft_delete as soft_delete_imp
 
@@ -1043,7 +1043,6 @@ def charge():
         item_id   : アイテムID
         file_name : ファイル名
         title     : タイトル
-        price     : 支払い金額
 
     Response parameter
         json:
@@ -1058,7 +1057,9 @@ def charge():
     item_id = request.values.get('item_id')
     file_name = request.values.get('file_name')
     title = request.values.get('title')
-    price = request.values.get('price')
+    price, _ = get_file_price(item_id)
+    if price is None:
+        return abort(403)
     file_url = current_app.config['THEME_SITEURL'] + f'/record/{item_id}/files/{file_name}'
     ret_url = urljoin(
         current_app.config['THEME_SITEURL'],

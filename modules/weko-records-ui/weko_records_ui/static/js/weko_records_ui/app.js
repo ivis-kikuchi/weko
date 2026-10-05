@@ -393,7 +393,6 @@ function handleChargeBillingFile() {
             'item_id': data.itemid,
             'file_name': data.filename,
             'title': data.title,
-            'price': data.price,
         }
         params = Object.keys(params).map(key => key + '=' + params[key]).join('&');
         $.ajax({
